@@ -19,6 +19,7 @@ def execute_sql(db_connection, sql, args):
         db_connection.commit()
 
     except Exception, e:
+        print str(e)
         db_connection.rollback()
 
     #Return the exception if there

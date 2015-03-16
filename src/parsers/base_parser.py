@@ -17,11 +17,15 @@ class BaseParser():
 
     def generic_parse_all(self, file_name, skipline, matcher_pattern, fun):
         with open(file_name, 'rU') as f:
+            records_processed = 0
             f = self.prime_file_input(f, skipline)
             for line in f:
+                if records_processed % 10000 == 0:
+                    print str(records_processed) + " Records processed"
                 match = re.search(matcher_pattern, line)
                 if match is not None:
                     fun(match)
+                records_processed += 1
 
     @staticmethod
     def get_performance_from_db(db_connection, title, year_str, performance_type):

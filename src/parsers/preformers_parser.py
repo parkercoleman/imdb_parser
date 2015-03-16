@@ -30,6 +30,7 @@ actors_matcher_pattern = '(.*?)\t+((.*? \(\S{4,}\)) ?(\(\S+\))? ?(?!\{\{SUSPENDE
 actors_file = file_locations["actors"]
 actress_file = file_locations["actress"]
 SKIP_LINE = 239
+import uuid
 
 class PreformerParser(BaseParser):
     def __init__(self, actors_file, actress_file):
@@ -44,9 +45,12 @@ class PreformerParser(BaseParser):
 
         for gender in gender_file_map.keys():
             with open(gender_file_map[gender], 'rU') as f:
+                records_parsed = 0
                 current_uuid = None
                 f = self.prime_file_input(f, SKIP_LINE)
                 for line in f:
+                    if records_parsed % 10000 == 0:
+                        print str(records_parsed) + " Records processed"
                     match = re.search(actors_matcher_pattern, line)
                     if match is not None:
                         if match.group(1) is not None and match.group(1) != '':
@@ -55,6 +59,8 @@ class PreformerParser(BaseParser):
 
                         #Regardless of if this is an actor line, we need to insert the performance
                         self.insert_performance_from_match(match, current_uuid)
+
+                    records_parsed += 1
 
     def insert_performance_from_match(self, match, current_actor_uuid):
         performance_uuid, tv_show_uuid, role, billing = BaseParser.get_performance_information_from_match(self.db_connection, match)
@@ -69,10 +75,11 @@ class PreformerParser(BaseParser):
         :return:
         '''
         first_name, last_name = BaseParser.clean_person_name(match.group(1))
-        sql = "INSERT INTO actors(first_name, last_name, gender) VALUES(%s, %s, %s)"
-        args = [convert_latin1(first_name), convert_latin1(last_name), gender]
+        performer_id = str(uuid.uuid4())
+        sql = "INSERT INTO actors(id, first_name, last_name, gender) VALUES(%s, %s, %s, %s)"
+        args = [performer_id, convert_latin1(first_name), convert_latin1(last_name), gender]
         execute_sql(self.db_connection, sql, args)
-        return BaseParser.get_performer_from_db(self.db_connection, first_name, last_name, gender)
+        return performer_id
 
     def insert_performance(self, performer_uuid, performance_uuid, ep_uuid, character_name, billing_position):
         ''' Inserts a performance
@@ -84,7 +91,7 @@ class PreformerParser(BaseParser):
         '''
         sql = "INSERT INTO roles(performers_id, performance_id, character_name, billing_position, episode_id) " \
               "VALUES(%s, %s, %s, %s, %s)"
-        args = [performer_uuid, performance_uuid, character_name, billing_position, ep_uuid]
+        args = [performer_uuid, performance_uuid, convert_latin1(character_name), billing_position, ep_uuid]
         execute_sql(self.db_connection, sql, args)
 
 if __name__ == '__main__':

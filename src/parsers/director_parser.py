@@ -24,6 +24,7 @@ flags: gm
 """
 
 SKIP_LINE = 235
+import uuid
 
 class DirectorParser(BaseParser):
     def __init__(self, director_file):
@@ -43,7 +44,7 @@ class DirectorParser(BaseParser):
             self.current_uuid = self.insert_director(line_match)
 
         #Regardless of if this is a director line, we need to insert the performance
-        self.insert_performance_from_match(line_match, self.current_uuid)
+        self.insert_performance_from_match(line_match)
 
     def insert_director(self, match):
         ''' Inserts a director and returns the generated uuid for that performer.
@@ -52,17 +53,18 @@ class DirectorParser(BaseParser):
         :return:
         '''
         first_name, last_name = BaseParser.clean_person_name(match.group(1))
-        sql = "INSERT INTO directors(first_name, last_name) VALUES(%s, %s)"
-        args = [convert_latin1(first_name), convert_latin1(last_name)]
+        director_id = str(uuid.uuid4())
+        sql = "INSERT INTO directors(id, first_name, last_name) VALUES(%s, %s, %s)"
+        args = [director_id, convert_latin1(first_name), convert_latin1(last_name)]
         execute_sql(self.db_connection, sql, args)
-        return BaseParser.get_director_from_db(self.db_connection, first_name, last_name)
+        return director_id
 
-    def insert_performance_from_match(self, match, current_uuid):
+    def insert_performance_from_match(self, match):
         performance_uuid, tv_show_uuid, role, billing = BaseParser.get_performance_information_from_match(self.db_connection, match)
         if performance_uuid is None:
             return
         sql = "INSERT INTO director_to_performance VALUES(%s, %s, %s)"
-        args = [current_uuid, performance_uuid, tv_show_uuid]
+        args = [self.current_uuid, performance_uuid, tv_show_uuid]
         execute_sql(self.db_connection, sql, args)
 
 

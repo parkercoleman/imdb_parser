@@ -16,11 +16,8 @@ flags: gm
     group 8: (.*)                                year
 """
 
-import re
 import psycopg2
-from src.settings import *
 from src.util.sql_util import *
-from src.util.string_util import *
 from src.parsers.base_parser import *
 
 movies_file = file_locations["movies"]
@@ -29,16 +26,20 @@ movie_matcher_pattern = "((.*? \(\S{4,}\)) ?(\(\S+\))? ?(?!\{\{SUSPENDED\}\})(\{
 #Number of lines in the file to skip
 SKIP_LINE = 15
 
+
 class MovieParser(BaseParser):
     def __init__(self, file_name):
         self.file_name = file_name
         self.db_connection = None
 
     def parse_all(self):
+        records_inserted = 0
         self.db_connection = psycopg2.connect(get_connection_string())
         with open(movies_file, 'rU') as f:
             f = self.prime_file_input(f, SKIP_LINE)
             for line in f:
+                if records_inserted % 10000 == 0:
+                    print str(records_inserted) + " Records inserted"
                 match = re.search(movie_matcher_pattern, line)
                 if match is not None:
                     record_type = MovieParser.is_movie_show_or_episode(match)
@@ -49,6 +50,8 @@ class MovieParser(BaseParser):
                     if record_type == 'episode':
                         self.insert_episode(match)
 
+                records_inserted += 1
+
     def insert_performance(self, match, performance_type):
         title, year, suspended = MovieParser.get_movie_and_show_info(match)
         sql = "INSERT INTO performances(title, release_year, performance_type, suspended, raw) " \
@@ -57,7 +60,7 @@ class MovieParser(BaseParser):
         execute_sql(self.db_connection, sql, args)
 
     def insert_episode(self, match):
-        uuid, ep_name, year, ep_season, ep_num, ep_raw = self.get_episode_info(self.db_connection, match)
+        uuid, ep_name, year, ep_season, ep_num, ep_raw = self.get_episode_info(match)
         if uuid is None:
             #if there isn't a tv show for this 'sode then we can't insert it
             return None
@@ -65,7 +68,7 @@ class MovieParser(BaseParser):
         sql = "INSERT INTO tv_episodes(episode_name, episode_date," \
                 "episode_season, episode_number, episode_id_raw, tv_show_id, raw) " \
                 "VALUES(%s, to_date(%s, 'YYYY'), %s, %s, %s, %s, %s)"
-        args = [convert_latin1(ep_name), year, ep_season, ep_num, ep_raw, uuid, convert_latin1(match.string)]
+        args = [convert_latin1(ep_name), year, ep_season, ep_num, convert_latin1(ep_raw), uuid, convert_latin1(match.string)]
         execute_sql(self.db_connection, sql, args)
 
     @staticmethod
@@ -87,11 +90,16 @@ class MovieParser(BaseParser):
         return title, year, suspended
 
     def get_episode_info(self, match):
-        show_name, year, suspended = MovieParser.get_movie_and_show_info(match, prefer_title_year=True)
+        #To find the show this episode belongs to, we need to use the release year
+        show_name, release_year, suspended = MovieParser.get_movie_and_show_info(match, prefer_title_year=True)
+
+        #However, when we insert the tv episode into the database, we want to use the air date, which is in the 8th match group
+        air_date = MovieParser.get_start_date_from_year_group(match.group(8))
+
         ep_name, ep_season, ep_num = MovieParser.clean_episode_info(match.group(5), match.group(6))
         ep_raw = match.group(4)
-        uuid = BaseParser.get_performance_from_db(self.db_connection, show_name, year, 2)
-        return uuid, ep_name, year, ep_season, ep_num, ep_raw
+        uuid = BaseParser.get_performance_from_db(self.db_connection, show_name, release_year, 2)
+        return uuid, ep_name, air_date, ep_season, ep_num, ep_raw
 
     @staticmethod
     def is_suspended(match):
