@@ -10,7 +10,9 @@ file_locations = {
     "movies": '/Users/ADINSX/IMDB_DATA/movies.list',
     "actors": '/Users/ADINSX/IMDB_DATA/actors.list',
     "actress": '/Users/ADINSX/IMDB_DATA/actresses.list',
-    "directors": '/Users/ADINSX/IMDB_DATA/directors.list'
+    "directors": '/Users/ADINSX/IMDB_DATA/directors.list',
+    "genres": '/Users/ADINSX/IMDB_DATA/genres.list',
+    "ratings": '/Users/ADINSX/IMDB_DATA/ratings.list'
 }
 
 def get_connection_string():

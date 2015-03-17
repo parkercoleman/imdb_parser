@@ -68,6 +68,24 @@ CREATE TABLE IF NOT EXISTS director_to_performance
     tv_show_uuid uuid
 );
 
+CREATE TABLE IF NOT EXISTS genres
+(
+  entity_id uuid NOT NULL, -- Can either be a performance or tv_episode uuid, since individual episodes can have genre information
+  genre text NOT NULL,
+  CONSTRAINT genres_pkey PRIMARY KEY (entity_id, genre)
+);
+
+CREATE TABLE IF NOT EXISTS ratings
+(
+  entity_id uuid NOT NULL,
+  votes integer,
+  rating double precision,
+  CONSTRAINT ratings_pkey PRIMARY KEY (entity_id)
+)
+
+
 CREATE INDEX ON director_to_performance (director_uuid);
 CREATE INDEX ON director_to_performance (performance_uuid);
 CREATE INDEX ON director_to_performance (tv_show_uuid);
+CREATE INDEX ON tv_episodes (raw);
+CREATE INDEX ON performances (raw);
